@@ -500,3 +500,110 @@ export default defineComponent({
 
 * [script setup docs](https://v3.vuejs.org/api/sfc-script-setup.html#sfc-script-setup) 
 * 更简单的书写代码,不需要使用export default defineComponent以及return
+
+
+
+
+
+# 插件
+
+
+
+* element-plus:样式,在main.js中使用
+
+  ```js
+  import { createApp } from 'vue';
+  import App from './App.vue';
+  import ElementPlus from 'element-plus';
+  import 'element-plus/dist/index.css';
+  
+  createApp(App).use(ElementPlus).mount('#app');
+  ```
+
+* unplugin-vue-components`和`unplugin-auto-import:减少打包体积,在vite.config.js中使用
+
+  ```js
+  import { defineConfig } from 'vite';
+  import vue from '@vitejs/plugin-vue';
+  import AutoImport from 'unplugin-auto-import/vite';
+  import Components from 'unplugin-vue-components/vite';
+  import { ElementPlusResolver } from 'unplugin-vue-components/resolvers';
+  
+  export default defineConfig({
+    plugins: [
+      vue(),
+        <!-- 使用element-plus无需手动导入 -->
+      AutoImport({
+        resolvers: [ElementPlusResolver()],
+      }),
+      Components({
+        resolvers: [ElementPlusResolver()],
+      }),
+    ],
+  })
+  ```
+
+  
+
+* axios:ajax请求
+
+* vue-i18n:国际化,新建一个ts文件
+
+  ```ts
+  // src/i18n.ts
+  import { createI18n } from 'vue-i18n';
+  
+  // 定义消息对象
+  const messages = {
+    en: {
+      message: {
+        username: 'Username',
+        password: 'Password',
+        login: 'Login',
+        inputUsername: 'Please enter the username',
+        inputPassword: 'Please enter the password'
+      }
+    },
+    zh: {
+      message: {
+        username: '用户名',
+        password: '密码',
+        login: '登录',
+        inputUsername: '请输入用户名',
+        inputPassword: '请输入密码'
+      }
+    }
+  };
+  
+  // 创建 i18n 实例
+  const i18n = createI18n({
+    locale: 'zh', // 设置默认语言为中文
+    messages,
+  });
+  
+  export default i18n;
+  ```
+
+  ```ts
+  <!-- main.ts -->
+  // main.ts
+  import { createApp } from 'vue';
+  import App from './App.vue';
+  import ElementPlus from 'element-plus';
+  import 'element-plus/dist/index.css';
+  import i18n from './i18n'; // 引入 i18n
+  
+  const app = createApp(App);
+  app.use(ElementPlus);
+  app.use(i18n); // 使用 i18n 插件
+  app.mount('#app');
+  ```
+
+  
+
+
+
+
+
+
+

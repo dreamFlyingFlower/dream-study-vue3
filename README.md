@@ -23,6 +23,15 @@
         }
     }
 </script>
+// 顶层setup,语法糖,script脚本中的内容就是setup(){},且定义在其中的对象可以被html直接使用
+<script setup>
+	import {defineProps,defineEmit} from "vue";
+    // 在顶层中使用props,相当于原生的props
+    cosnt props=defineProps({})
+    // 调用父组件方法
+    const emit=defineEmit(["父组件方法1","父组件方法2"])
+    emit("父组件方法1",arg1...)
+</script>
 ```
 
 * props: 用来接收 props 数据
@@ -35,13 +44,25 @@
 
 
 
-* reactive() 函数接收一个普通对象,返回一个响应式的数据对象,创建出来之后,在 setup 中 return 出去,直接在 template 中调用即可
+* reactive() 函数接收一个普通对象或数组,返回一个响应式的数据对象,创建出来之后,在 setup 中 return 出去,直接在 template 中调用即可
+* 使用ES6语法解构reactive对象,那么之后无论是修改解构后的对象,还是修改reactive返回的对象,数据都不再是响应式的
 
 ```vue
 let state = reactive({
 	name: 'test'
 });
+
+// 当前的state还是响应式的
+const state = reactive({name:"test",age:18});
+// 解构后,name,age,state全都不是响应式数据
+const {name,age} = state
+// 使用toRefs可以将state对象中的所有属性转为响应式的ref对象.注意,使用let才可以后续修改name和age,const不可修改
+let {name,age} = toRefs(state)
 ```
+
+* `isProxy`:检查对象是否由reactive或readonly创建的proxy
+* `isReactive`:检查对象是否由reactive创建的对象
+* `toRaw`:返回reactive或readonly代理对象的原始对象
 
 
 
@@ -49,7 +70,7 @@ let state = reactive({
 
 
 
-* ref() 函数用来根据给定的值创建一个响应式的数据对象,返回值是一个对象,这个对象上只包含一个 value 属性,只在 setup 函数内部访问 ref 函数需要加.value
+* ref() 函数用来根据给定的基本类型值创建一个响应式对象,返回值是一个对象,这个对象上只包含一个 value 属性,在 setup 内部访问 ref 函数需要加.value
 
 ```vue
 <script lang="ts">
@@ -124,11 +145,54 @@ export default defineComponent({
 
 
 
+# unref
+
+
+
+* 获取一个ref对象的value,但是该方法会先判断需要获取的对象是否为一个ref对象,如果不是,则直接返回
+
+```
+const name = ref("xxxx");
+// 相当于想调用isRef(name),如果返回true,则调用name.value,否则直接返回name
+unref(name);
+```
+
+
+
 # toRef
 
 
 
-* 该函数可以将 reactive() 创建出来的响应式对象转换为普通对象,只不过,这个对象上的每个属性节点,都是 ref() 类型的响应式数据
+* 将 reactive() 对象中的指定属性解构为单个响应式对象,解构出的对象是 ref() 类型的响应式对象
+
+```
+let state = reactive({
+	name: 'test'
+});
+
+// 当前的state还是响应式的
+const state = reactive({name:"test",age:18});
+// 解构后,将name解构为ref对象.注意,要修改就使用let,const不可修改对象
+let name = toRef(state,"name");
+```
+
+
+
+# toRefs
+
+
+
+* 将reactive创建的对象完全解构为响应式对象,每个对象都是ref类型的响应式对象
+
+
+
+# readonly
+
+
+
+* `readonly(object)`:只读属性.object可以是一个普通的对象,也可以是响应式对象
+* 当object是一个响应式对象时,从父组件将只读响应式对象传到子组件时,子组件不可以修改只读响应式对象
+* 父组件可以通过修改object来让修改只读响应式对象中的内容
 
 
 
@@ -184,11 +248,11 @@ export default defineComponent({
 
 
 
-# LifeCycle Hooks
+# watchEffect
 
 
 
-* 新版的生命周期函数,可以按需导入到组件中,且只能在 setup() 函数中使用, 但是也可以在 setup 外定义, 在 setup 中使用
+* 监听页面内所有响应式对象,从加载页面就开始监听,不需要像watch那样指定immediate属性
 
 ```vue
 <script lang="ts">
@@ -196,9 +260,73 @@ export default defineComponent({
     import { defineComponent, onBeforeMount, onBeforeUnmount, onBeforeUpdate, onErrorCaptured, onMounted, onUnmounted, onUpdated } from 'vue';
     export default defineComponent({
         setup(props, context) {
+            const name = ref("xxx");
+            cosnt age = ref(20);
+			// 直接从页面加载就开始监听name和age,每次name或age改变时都会调用watchEffect函数            
+            const stop() = watchEffect(()=>{
+            	console.log(name)
+                console.log(age)
+            })
+            // 停止监听watchEffect
+            stop();
+        }
+    });
+</script>
+```
+
+
+
+# watch
+
+
+
+```vue
+<script lang="ts">
+    import { set } from 'lodash';
+    import { defineComponent, onBeforeMount, onBeforeUnmount, onBeforeUpdate, onErrorCaptured, onMounted, onUnmounted, onUpdated } from 'vue';
+    export default defineComponent({
+        setup(props, context) {
+            // 直接监听对象
+            watch(name,(newVal,oldVal)=>{
+                
+            })
+            // 监听对象中的某个属性
+            watch(()=>name.test,(newVal,oldVal)=>{
+                
+            })
+            // 监听对象属性,此时newVal和oldVal都是数组,对应前面的属性
+            watch([name,age],(newVal,oldVal)=>{
+                
+            })
+            // 监听对象属性
+            watch([name,age],([newName,oldName],[newAge,oldAge])=>{
+                
+            })
+        }
+    });
+</script>
+```
+
+
+
+# LifeCycle Hooks
+
+
+
+* 新版的生命周期函数,可以按需导入到组件中,且只能在 setup() 函数中使用, 但是也可以在 setup 外定义, 在 setup 中使用
+* setup中没有和`beforeCreated`,`created`对应的方法,setup中的数据处理比`beforeCreated`还要早
+
+```vue
+<script lang="ts">
+    import { set } from 'lodash';
+    import { defineComponent, onBeforeMount, onBeforeUnmount, onBeforeUpdate, onErrorCaptured, onMounted, onUnmounted, onUpdated } from 'vue';
+    export default defineComponent({
+        setup(props, context) {
+            // 相当于原生的beforeMount
             onBeforeMount(()=> {
                 console.log('beformounted!')
             })
+            // 相当于原生的mounted
             onMounted(() => {
                 console.log('mounted!')
             })
@@ -233,7 +361,8 @@ export default defineComponent({
 
 
 
-* Vue3 新增了 defineAsyncComponent 函数来处理动态引入的组件.defineAsyncComponent 可以接受返回Promise的工厂函数.当从服务器检索到组件定义时,应该调用 Promise 的解析回调,还可以调用 reject(reason)来指示负载已经失败
+* Vue3 新增了 defineAsyncComponent 函数来处理动态引入的组件,同时还可以在打包时进行分包
+* defineAsyncComponent 可以接受返回Promise的工厂函数.当从服务器检索到组件定义时,应该调用 Promise 的解析回调,还可以调用 reject(reason)来指示负载已经失败
 
 ```vue
 <script>
@@ -248,9 +377,11 @@ export default defineComponent({
 ```vue
 <template>
     <Suspense>
+        // 固定写法:默认使用指定组件
         <template #default>
             <my-component />
         </template>
+		// 如果默认组件加载失败,使用回调组件,类似于降级
         <template #fallback>
             Loading ...
         </template>
@@ -270,6 +401,73 @@ export default defineComponent({
         }
     })
 </script>
+```
+
+
+
+# $refs
+
+
+
+* `this.$refs`:获取所有组件
+* 在setup中不能使用this,需要使用ref定义
+
+```vue
+<template>
+	<my-component ref="myComponent"></my-component>
+</template>
+
+<script lang='ts'>
+
+    export default defineComponent({
+        components: {
+            MyComponent
+        },
+        setup() {
+            // 获取myComponent组件,变量名需要和组件上的ref值一样
+            const myComponent = ref(null);
+            return {}
+        },
+        methods:{
+            test(){
+                // 获取MyComponent组件
+                console.log(this.$refs.myComponent);
+                // 获取MyComponent组件的根元素
+                console.log(this.$refs.myComponet.$el)
+            }
+        }
+    })
+</script>
+```
+
+
+
+# $parent
+
+
+
+* `this.$parent`:可以直接获取父组件.`$children`在Vue3中已经移除,使用ref来获取
+
+
+
+# $root
+
+
+
+* `this.$root`:获取根节点组件
+
+
+
+# $emits
+
+
+
+* 子组件调用父组件方法时,需要首先在`emits`中定义调用的父组件方法,然后在调用时使用`$emit`进行调用
+
+```
+emits:["父组件的方法名"];
+
+this.$emit("父组件的方法名","参数1","参数2"...)
 ```
 
 
@@ -336,22 +534,118 @@ export default defineComponent({
 
 
 
+# 非父子组件
+
+
+
+* Provide/Inject:虽然是非父子组件,其实是孙子,孙子子类似的组件,兄弟组件中也无法使用
+
+  * 最上级组件中使用`provide`属性,定义可以向下传递的内容
+  * 子组件或更下层的子组件使用`inject`选择性接收`provide`中是属性,不需要接收`provide`中的全部属性
+  * `provide`中的属性不是响应式的数据,如果需要使用响应式数据,需要使用`computed`
+
+  ```
+  provide:["属性1","属性2"]
+  // 如果要使用this,需要定义为方法
+  provide(){
+  	return {
+  		属性1:"",
+  		属性2:"",
+  		属性3: computed(()=>this.names.length)
+  	}
+  }
+  ```
+
+* Mitt全局事件总线:mitt依赖,类似于eventBus,使用方式可参考官网
+
+
+
 # slot
 
 
 
-* 子组件
+* 插槽:在子组件中使用`<slot>`标签,父组件使用子组件时,写在子组件标签内的所有内容将被渲染到子组件的`<slot>`标签中
+* `v-slot:`可以缩写成`#`,注意,冒号也是
+* 子组件:name可以使用动态属性
 
 ```
+<span>xxx</span>
 <slot name="title">
+	默认的内容,如果父组件没有插入任何内容就会显示默认内容
+</slot>
+<slot name="user">
+	默认的内容,如果父组件没有插入任何内容就会显示默认内容
+</slot>
+<span>xxxxxx</span>
 ```
 
-* 父组件
+* 父组件:插槽里可以是组件,也可以直接写html元素
 
 ```
-<template v-slot="title">
-  <h1>哈哈哈</h1>
+<template>
+	// 以下所有内容会直接替换子组件slot元素
+	<h1>哈哈哈</h1>
+	<h2>xxxx</h2>
 </template>
+// 如果有多个插槽,则需要根据插槽的name属性匹配.当前内容只会插入到子组件的title插槽,user插槽不会改变
+<template v-slot:"title">
+	// 等同于<template #title>
+	// 以下所有内容会直接替换子组件slot元素
+	<h1>哈哈哈</h1>
+	<h2>xxxx</h2>
+</template>
+// 绑定一个动态的属性name
+<template v-slot:[name]>
+	// 以下所有内容会直接替换子组件slot元素
+	<h1>哈哈哈</h1>
+	<h2>xxxx</h2>
+</template>
+```
+
+* 父组件获取子组件中的值
+
+```
+// 子组件
+<slot :item="item" :index="index">
+	默认的内容,如果父组件没有插入任何内容就会显示默认内容
+</slot>
+// 父组件使用子组件,填充到子组件插槽的内容
+// slotProps可以自定义,表示获取到子组件中所有的属性
+<template v-slot="slotProps">
+	<span>{{slotProps.item}} - {{slotProps.index}}</span>
+</template>
+```
+
+* 如果即需要指定插槽名,又需要使用子组件的数据,写法:`v-slot:left=slotProps`或`#left=slotProps`
+
+
+
+# 动态组件
+
+
+
+```vue
+<template>
+	// 如果需要传值,和普通的组件一样,直接写在component上
+	<component :is="current"></component>
+</template>
+<script>
+    // 使用component的is属性可以动态切换组件
+    // 首先需要引入所有动态组件,注册,然后绑定一个属性,根据其他方式修改绑定属性的值4
+    // 注意引入组件的大小写和绑定属性的大小写
+    data(){
+        return {
+            // 组件名小写或使用-的形式
+            current:home
+        }
+    }
+    components:{
+        // 组件名首字母大写
+        Home,
+        Main,
+        Footer
+    }
+</script>
 ```
 
 
@@ -502,6 +796,45 @@ export default defineComponent({
 * 更简单的书写代码,不需要使用export default defineComponent以及return
 
 
+
+# 缓存组件
+
+
+
+* `keep-alive`: 如果在多个tab页之间切换,需要保存之前tab页的状态,可以使用keep-alive标签包裹组件
+  * 缓存组件在切换时,只会调用一次`created`,再次切换回来,不会再次调用
+  * 缓存组件切换到其他组件时,不会调用`unmounted`
+* `activated(){}`:当从其他组件切换回缓存组件时会调用该方法,类似于`created`
+* `deactivated(){}`:当缓存组件切换到其他组件时会调用该方法,类似于`unmounted`
+
+
+
+# modelValue
+
+
+
+```vue
+<template>
+	<!-- 在组件上绑定值,类似于在input元素上双向绑定 -->
+	<my-component v-model="message"></my-component>
+	<!-- 该写法等同于上面的写法,上面是简写 -->
+	<!-- modelValue是传递给子组件的属性,可自定义 -->
+	<!-- @update:model-value是固定写法,model-value是自定义的属性名,根据实际情况修改 -->
+	<!-- 子组件会通过this.$emits[update:modelValue]来调用@update:model-value方法,修改message的值 -->
+	<my-component :modelValue="message" @update:model-value="message = $event"></my-component>
+</template>
+
+<script lang='ts'>
+    export default defineComponent({
+        components: {
+            MyComponent
+        },
+        setup() {
+            return {}
+        }
+    })
+</script>
+```
 
 
 
